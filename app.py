@@ -8,7 +8,12 @@ from docx.shared import Pt
 from docx.enum.table import WD_TABLE_ALIGNMENT
 
 VERSION = "KWv3-2025-08-10"  # shows in UI so you can confirm it's live
-USE_SPACY = False
+USE_SPACY = st.toggle(
+    "Use spaCy for keyword extraction",
+    value=False,
+    help="Turn ON for richer multi-word phrases (needs spaCy model). Keep OFF if performance is slow."
+)
+
 
 
 # ---------------- spaCy (optional but ON in your case) ----------------
