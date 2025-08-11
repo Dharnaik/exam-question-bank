@@ -20,7 +20,8 @@ USE_SPACY = st.toggle(
 try:
     import spacy
     try:
-        _NLP = spacy.load("en_core_web_sm")
+        _NLP = spacy.load("en_core_web_sm", disable=["ner", "lemmatizer"])
+
     except Exception:
         _NLP = None
 except Exception:
