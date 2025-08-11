@@ -7,7 +7,7 @@ from docx import Document
 from docx.shared import Pt
 from docx.enum.table import WD_TABLE_ALIGNMENT
 
-VERSION = "KWv3-2025-08-10 (MIN)"
+VERSION = "KWv3-2025-08-10 (MIN+py311)"
 
 # ---------------- minimal RAKE-style extractor (no spaCy) ----------------
 _STOP = set("""
