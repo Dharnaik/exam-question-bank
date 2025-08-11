@@ -123,36 +123,47 @@ def _candidates_rake(text: str):
 def extract_keywords(text: str, max_keywords: int = 3):
     if not text or not str(text).strip():
         return []
+
     phrases = []
-if _NLP and USE_SPACY:
-    phrases.extend(_candidates_spacy(text))
+
+    # Only use spaCy when explicitly enabled and model is loaded
+    if _NLP and USE_SPACY:
+        phrases.extend(_candidates_spacy(text))
+
+    # Fill remaining slots with RAKE candidates
     if len(phrases) < max_keywords:
         extras = _candidates_rake(text)
         seen = set(phrases)
         for ph in extras:
             if ph not in seen:
-                phrases.append(ph); seen.add(ph)
+                phrases.append(ph)
+                seen.add(ph)
             if len(phrases) >= max_keywords:
                 break
+
+    # Last resort: n-grams (still multi-word)
     if not phrases:
-        # last resort: n-grams from non-stop tokens (still multi‑word)
         tokens = [w.lower() for w in _WORD.findall(text) if w.lower() not in _STOP]
         for n in (3, 2):
-            for i in range(0, max(0, len(tokens)-n+1)):
-                cand = " ".join(tokens[i:i+n])
+            for i in range(0, max(0, len(tokens) - n + 1)):
+                cand = " ".join(tokens[i:i + n])
                 if len(cand) >= 4 and cand not in _GENERIC:
                     phrases.append(cand)
                     if len(phrases) >= max_keywords:
                         break
             if phrases:
                 break
+
+    # Keep only multi-word and dedup
     phrases = [ph for ph in phrases if len(ph.split()) >= 2]
     seen, out = set(), []
     for ph in phrases:
         if ph not in seen:
-            seen.add(ph); out.append(ph)
+            seen.add(ph)
+            out.append(ph)
         if len(out) >= max_keywords:
             break
+
     return out if out else ["NO_PHRASE_FOUND"]
 
 # ---------------- DOCX helpers ----------------
