@@ -8,6 +8,8 @@ from docx.shared import Pt
 from docx.enum.table import WD_TABLE_ALIGNMENT
 
 VERSION = "KWv3-2025-08-10"  # shows in UI so you can confirm it's live
+USE_SPACY = False
+
 
 # ---------------- spaCy (optional but ON in your case) ----------------
 try:
@@ -122,6 +124,7 @@ def extract_keywords(text: str, max_keywords: int = 3):
     if not text or not str(text).strip():
         return []
     phrases = []
+if _NLP and USE_SPACY:
     phrases.extend(_candidates_spacy(text))
     if len(phrases) < max_keywords:
         extras = _candidates_rake(text)
