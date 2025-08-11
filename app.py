@@ -8,26 +8,18 @@ from docx.shared import Pt
 from docx.enum.table import WD_TABLE_ALIGNMENT
 
 VERSION = "KWv3-2025-08-10"  # shows in UI so you can confirm it's live
-USE_SPACY = st.toggle(
-    "Use spaCy for keyword extraction",
-    value=False,
-    help="Turn ON for richer multi-word phrases (needs spaCy model). Keep OFF if performance is slow."
-)
 
-
-
-# ---------------- spaCy (optional but ON in your case) ----------------
+# ---------------- spaCy (optional) ----------------
 try:
     import spacy
     try:
         _NLP = spacy.load("en_core_web_sm", disable=["ner", "lemmatizer"])
-
     except Exception:
         _NLP = None
 except Exception:
     _NLP = None
 
-# ---------------- Keyword extractor (multi‑word only) ----------------
+# ---------------- Keyword extractor (multi-word only) ----------------
 _STOP = set("""
 the and or for with from into onto about using use uses of in on to by as at this that which these those their your our its are is be been being it an a do does did can could may might should would will shall how what why when where
 define description describe explain discuss briefly write list state name give show draw calculate solve determine find compute compare analyze analyse assess evaluate identify demonstrate apply design develop construct create formulate justify argue critique outline summarize classify distinguish examine
@@ -52,7 +44,7 @@ def _strip_edge_stops(tokens):
 
 def _clean_phrase(tokens):
     toks = _strip_edge_stops(tokens)
-    if not toks or len(toks) < 2:   # STRICT: multi‑word only
+    if not toks or len(toks) < 2:   # STRICT: multi-word only
         return ""
     text = " ".join(toks).lower()
     if text in _GENERIC:
@@ -65,13 +57,13 @@ def _candidates_spacy(text: str):
     doc = _NLP(text)
     cands = []
     # noun chunks
-    for chunk in doc.noun_chunks:
+    for chunk in getattr(doc, "noun_chunks", []):
         toks = [t.text for t in chunk if (t.is_alpha or t.is_digit or '-' in t.text)]
         ph = _clean_phrase(toks)
         if ph and 2 <= len(ph.split()) <= 6:
             cands.append(ph)
-    # named entities (sometimes technical)
-    for ent in doc.ents:
+    # named entities (optional; may be empty since NER disabled)
+    for ent in getattr(doc, "ents", []):
         if ent.label_ in {"ORG","PRODUCT","WORK_OF_ART","EVENT","FAC","GPE","LAW"}:
             toks = [t.text for t in ent if (t.is_alpha or t.is_digit or '-' in t.text)]
             ph = _clean_phrase(toks)
@@ -116,7 +108,7 @@ def _candidates_rake(text: str):
     for ch in chunks:
         if 2 <= len(ch) <= 6:
             ph = _clean_phrase([w.lower() for w in ch])
-            if not ph or ph in seen: 
+            if not ph or ph in seen:
                 continue
             s = sum(scores.get(w.lower(), 1.0) for w in ch)
             scored.append((s, ph))
@@ -129,47 +121,39 @@ def _candidates_rake(text: str):
 def extract_keywords(text: str, max_keywords: int = 3):
     if not text or not str(text).strip():
         return []
-
     phrases = []
-
-    # Only use spaCy when explicitly enabled and model is loaded
+    # Only use spaCy when enabled and model is loaded
     if _NLP and USE_SPACY:
         phrases.extend(_candidates_spacy(text))
-
-    # Fill remaining slots with RAKE candidates
+    # Fill remaining slots with RAKE
     if len(phrases) < max_keywords:
         extras = _candidates_rake(text)
         seen = set(phrases)
         for ph in extras:
             if ph not in seen:
-                phrases.append(ph)
-                seen.add(ph)
+                phrases.append(ph); seen.add(ph)
             if len(phrases) >= max_keywords:
                 break
-
     # Last resort: n-grams (still multi-word)
     if not phrases:
         tokens = [w.lower() for w in _WORD.findall(text) if w.lower() not in _STOP]
         for n in (3, 2):
-            for i in range(0, max(0, len(tokens) - n + 1)):
-                cand = " ".join(tokens[i:i + n])
+            for i in range(0, max(0, len(tokens)-n+1)):
+                cand = " ".join(tokens[i:i+n])
                 if len(cand) >= 4 and cand not in _GENERIC:
                     phrases.append(cand)
                     if len(phrases) >= max_keywords:
                         break
             if phrases:
                 break
-
     # Keep only multi-word and dedup
     phrases = [ph for ph in phrases if len(ph.split()) >= 2]
     seen, out = set(), []
     for ph in phrases:
         if ph not in seen:
-            seen.add(ph)
-            out.append(ph)
+            seen.add(ph); out.append(ph)
         if len(out) >= max_keywords:
             break
-
     return out if out else ["NO_PHRASE_FOUND"]
 
 # ---------------- DOCX helpers ----------------
@@ -209,7 +193,7 @@ def classify_question_type(question):
     return "P" if any(w in str(question).lower() for w in ["calculate","solve","determine","find","compute"]) else "T"
 
 # ---------------- Streamlit UI ----------------
-st.title("📚 Question Bank — Multi‑word Keyword Extractor + DOCX")
+st.title("📚 Question Bank — Multi-word Keyword Extractor + DOCX")
 st.caption(f"App version: {VERSION} • spaCy: {'ON' if _NLP else 'OFF'}")
 
 USE_SPACY = st.toggle(
@@ -217,7 +201,6 @@ USE_SPACY = st.toggle(
     value=False,
     help="Turn ON for richer multi-word phrases; OFF is fastest."
 )
-
 
 qfile = st.file_uploader("Upload Questions CSV", type=["csv","xlsx","xls"])
 bold_kw = st.checkbox("Bold Keywords in DOCX", value=True)
@@ -238,7 +221,7 @@ if qfile:
             if col not in df.columns:
                 df[col] = ""
         # preview keywords
-        df["_Keywords (multi‑word)"] = df["Question"].astype(str).apply(
+        df["_Keywords (multi-word)"] = df["Question"].astype(str).apply(
             lambda x: ", ".join(extract_keywords(x, 3))
         )
         st.subheader("Preview (first 15 rows)")
