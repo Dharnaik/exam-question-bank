@@ -171,50 +171,6 @@ def extract_keywords(text: str, max_keywords: int = 3):
             break
 
     return out if out else ["NO_PHRASE_FOUND"]
-@st.cache_data(show_spinner=False)
-def _candidates_spacy_batch(texts):
-    """Return list-of-lists of phrases using a single spaCy pipeline pass."""
-    if not _NLP:
-        return [[] for _ in texts]
-
-    out_lists = []
-    for doc in _NLP.pipe(texts, batch_size=64):
-        cands = []
-        # noun chunks
-        for chunk in getattr(doc, "noun_chunks", []):
-            toks = [t.text for t in chunk if (t.is_alpha or t.is_digit or '-' in t.text)]
-            ph = _clean_phrase(toks)
-            if ph and 2 <= len(ph.split()) <= 6:
-                cands.append(ph)
-        # light entity pass (we disabled NER earlier; safe if empty)
-        for ent in getattr(doc, "ents", []):
-            if ent.label_ in {"ORG","PRODUCT","WORK_OF_ART","EVENT","FAC","GPE","LAW"}:
-                toks = [t.text for t in ent if (t.is_alpha or t.is_digit or '-' in t.text)]
-                ph = _clean_phrase(toks)
-                if ph:
-                    cands.append(ph)
-        # dedup preserve order
-        seen, keep = set(), []
-        for ph in cands:
-            if ph not in seen:
-                seen.add(ph); keep.append(ph)
-        out_lists.append(keep)
-    return out_lists
-
-
-def _top3_merge(primary_list, text):
-    """Take up to 3 from primary_list, then fill with RAKE (dedup)."""
-    seen, out = set(), []
-    for ph in primary_list:
-        if ph not in seen and len(out) < 3:
-            seen.add(ph); out.append(ph)
-    if len(out) < 3:
-        for ph in _candidates_rake(text):
-            if ph not in seen:
-                seen.add(ph); out.append(ph)
-                if len(out) >= 3:
-                    break
-    return ", ".join(out) if out else "NO_PHRASE_FOUND"
 
 # ---------------- DOCX helpers ----------------
 def _set_cell(cell, text, bold=False):
